@@ -38,7 +38,7 @@ st.set_page_config(
 )
 
 # ===============================
-# 한글 폰트 깨짐 방지
+# 한글 폰트
 # ===============================
 st.markdown("""
 <style>
@@ -91,9 +91,8 @@ def load_env_data():
             st.stop()
 
         df = pd.read_csv(f)
-        school = t.split("_")[0]
-        df["school"] = school
-        result[school] = df
+        df["school"] = t.split("_")[0]
+        result[t.split("_")[0]] = df
 
     return result
 
@@ -153,11 +152,9 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 # ===============================
-# Tab 1: EC 농도별 생육 결과
+# Tab 1
 # ===============================
 with tab1:
-    st.subheader("EC 농도별 평균 생육 비교")
-
     mean_df = growth_df.groupby("EC").agg({
         "생중량(g)": "mean",
         "잎 수(장)": "mean",
@@ -173,11 +170,7 @@ with tab1:
     fig.add_bar(x=mean_df["EC"], y=mean_df["잎 수(장)"], row=1, col=2)
     fig.add_bar(x=mean_df["EC"], y=mean_df["지상부 길이(mm)"], row=1, col=3)
 
-    fig.add_vline(
-        x=2.0,
-        line_dash="dash",
-        annotation_text="하늘고 EC 2.0 ⭐"
-    )
+    fig.add_vline(x=2.0, line_dash="dash", annotation_text="하늘고 EC 2.0 ⭐")
 
     fig.update_layout(
         height=450,
@@ -186,18 +179,10 @@ with tab1:
 
     st.plotly_chart(fig, use_container_width=True)
 
-    st.info(
-        "🔎 **해석**\n\n"
-        "- 생육 결과를 종합하면 최적 EC는 **1.2~1.3 범위**로 추정됨\n"
-        "- 단, 학교별 환경 차이(온도·습도)가 결과에 큰 영향을 미침"
-    )
-
 # ===============================
-# Tab 2: 간단한 예측 모델
+# Tab 2
 # ===============================
 with tab2:
-    st.subheader("EC 기반 단순 회귀 예측 (생중량)")
-
     x = growth_df["EC"].values
     y = growth_df["생중량(g)"].values
 
@@ -205,32 +190,23 @@ with tab2:
     poly = np.poly1d(coef)
 
     x_range = np.linspace(min(x), max(x), 100)
-    y_pred = poly(x_range)
 
     fig = go.Figure()
     fig.add_scatter(x=x, y=y, mode="markers", name="실측값")
-    fig.add_scatter(x=x_range, y=y_pred, mode="lines", name="예측 곡선")
+    fig.add_scatter(x=x_range, y=poly(x_range), mode="lines", name="예측 곡선")
 
     fig.update_layout(
         xaxis_title="EC",
         yaxis_title="생중량(g)",
-        font=dict(family="Malgun Gothic, Apple SD Gothic Neo, sans-serif")
+        font=dict(family="Malgun Gothic")
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-    st.warning(
-        "⚠️ **한계점**\n\n"
-        "- 데이터가 4개 EC 조건뿐이라 모델 신뢰도가 낮음\n"
-        "- 환경 요인(온도·습도·pH)을 포함한 다변량 모델 필요"
-    )
-
 # ===============================
-# Tab 3: 상관관계 표
+# Tab 3 (🔥 완전 수정)
 # ===============================
 with tab3:
-    st.subheader("EC 및 환경 요인과 생육 지표 상관관계")
-
     corr_df = growth_df[[
         "EC",
         "잎 수(장)",
@@ -239,14 +215,30 @@ with tab3:
         "생중량(g)"
     ]].corr()
 
-    st.dataframe(corr_df.style.background_gradient(cmap="YlGnBu"))
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=corr_df.values,
+            x=corr_df.columns,
+            y=corr_df.index,
+            colorscale="YlGnBu",
+            zmin=-1,
+            zmax=1
+        )
+    )
+
+    fig.update_layout(
+        title="EC 및 생육 지표 상관관계",
+        font=dict(family="Malgun Gothic")
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
 
     buffer = io.BytesIO()
     corr_df.to_excel(buffer, engine="openpyxl")
     buffer.seek(0)
 
     st.download_button(
-        label="📥 상관관계 표 XLSX 다운로드",
+        "📥 상관관계 표 XLSX 다운로드",
         data=buffer,
         file_name="EC_생육_상관관계.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
